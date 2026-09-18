@@ -130,5 +130,10 @@
 
 <script src="js/supabase-config.js"></script>
 <script src="js/customer.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js');
+  }
+</script>
 </body>
 </html>
