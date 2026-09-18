@@ -347,10 +347,28 @@ async function sendChatMessage() {
   loadChat();
 }
 function subscribeChat() {
-  supabaseClient.channel('customer-chat')
-   .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, payload => {
-      if (CUSTOMER && payload.new.customer_id === CUSTOMER.id) loadChat();
+  if (!CUSTOMER) return;
+  // پرانا چینل بند کرو تاکہ ڈبل میسج نہ آئے
+  supabaseClient.removeAllChannels();
+  
+  supabaseClient.channel('customer-chat-' + CUSTOMER.id)
+    .on('postgres_changes', { 
+      event: 'INSERT', 
+      schema: 'public', 
+      table: 'chat_messages',
+      filter: `customer_id=eq.${CUSTOMER.id}`
+    }, payload => {
+      const box = document.getElementById('chatBox');
+      const m = payload.new;
+      const div = document.createElement('div');
+      div.className = `chat-msg ${m.sender}`;
+      div.textContent = m.message;
+      box.appendChild(div);
+      box.scrollTop = box.scrollHeight;
+      // لِسٹ بھی ریفریش کرو تاکہ ایڈمن سائیڈ پر بھی نظر آئے
+      if(document.getElementById('chatCustomerList')) loadChatCustomerList();
     }).subscribe();
+}
 }
 
 // ---- init ----
