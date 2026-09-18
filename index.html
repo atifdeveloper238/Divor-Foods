@@ -70,6 +70,9 @@
     <input id="custLocation" type="text">
     <button class="btn" style="margin-top:14px" onclick="updateAccount()">Save changes</button>
     <button class="btn-outline btn" style="margin-top:14px" onclick="customerLogout()">Log out</button>
+
+    <h3 style="margin-top:24px">Your Orders</h3>
+    <div id="myOrdersList"></div>
   </div>
 
   <!-- MENU -->
@@ -134,6 +137,9 @@
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js');
   }
-</script>
+
 </body>
 </html>
+
+
+
