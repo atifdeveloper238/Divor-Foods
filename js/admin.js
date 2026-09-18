@@ -390,7 +390,7 @@ function subscribeAdminChat() {
       }
     }).subscribe();
 }
-}
+
 
 // ---- INIT ----
 checkSession();
