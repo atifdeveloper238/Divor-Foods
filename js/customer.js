@@ -369,7 +369,7 @@ function subscribeChat() {
       if(document.getElementById('chatCustomerList')) loadChatCustomerList();
     }).subscribe();
 }
-}
+
 
 // ---- init ----
 (async function init() {
