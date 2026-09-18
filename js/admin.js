@@ -377,3 +377,12 @@ async function sendAdminReply() {
 }
 function subscribeAdminChat() {
   supabaseClient.channel('admin-chat')
+   .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, () => {
+      loadChatCustomerList();
+      if (CURRENT_CHAT_CUSTOMER) loadAdminChatMessages();
+    }).subscribe();
+}
+
+// ---- INIT ----
+checkSession();
+subscribeAdminChat();
