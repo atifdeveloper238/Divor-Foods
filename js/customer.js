@@ -281,18 +281,17 @@ async function placeOrder() {
   }
 
   const { data: orderData, error: orderErr } = await supabaseClient.from('orders').insert({
-    id: orderId,
-    customer_id: CUSTOMER.id,
-    customer_name: CUSTOMER.name,
-    customer_phone: CUSTOMER.phone,
-    customer_location: CUSTOMER.location,
-    items,
-    delivery_charge: deliveryCharge,
-    total,
-    payment_method: method,
-    payment_screenshot_url: screenshotUrl,
-    status: 'pending'
-  }).select().single();
+  customer_id: CUSTOMER.id,
+  customer_name: CUSTOMER.name,
+  customer_phone: CUSTOMER.phone,
+  customer_location: CUSTOMER.location,
+  items,
+  delivery_charge: deliveryCharge,
+  total,
+  payment_method: method,
+  payment_screenshot_url: screenshotUrl,
+  status: 'pending'
+}).select().single();
 
   if (orderErr) {
     errEl.textContent = 'Could not place order: ' + orderErr.message;
