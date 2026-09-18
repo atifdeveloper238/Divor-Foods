@@ -213,26 +213,93 @@ async function addMenuItem() {
   const price = parseFloat(document.getElementById('newItemPrice').value);
   const fileInput = document.getElementById('newItemPhoto');
 
-  if (!name || !price) { alert('Please enter at least a name and price.'); return; }
-
-  let photo_url = null;
-  if (fileInput.files[0]) {
-    const file = fileInput.files[0];
-    const filePath = `${Date.now()}_${file.name}`;
-    const { error } = await supabaseClient.storage.from('menu-photos').upload(filePath, file);
-    if (error) { alert('Photo upload failed: ' + error.message); return; }
-    const { data } = supabaseClient.storage.from('menu-photos').getPublicUrl(filePath);
-    photo_url = data.publicUrl;
+  if (!name || !Number.isFinite(price) || price <= 0) {
+    alert('Please enter a valid name and price.');
+    return;
   }
 
-  await supabaseClient.from('menu_items').insert({ name, description, price, photo_url, available: true });
+  let photo_url = null;
+
+  // Upload photo first, only when a photo was selected.
+  if (fileInput && fileInput.files && fileInput.files.length > 0) {
+    const file = fileInput.files[0];
+
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file.');
+      return;
+    }
+
+    // Keep the filename safe and unique.
+    const extension = (file.name.split('.').pop() || 'jpg')
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '');
+
+    const filePath = `menu_${Date.now()}_${crypto.randomUUID()}.${extension}`;
+
+    const { error: uploadError } = await supabaseClient
+      .storage
+      .from('menu-photos')
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: false,
+        contentType: file.type
+      });
+
+    if (uploadError) {
+      console.error('Menu photo upload error:', uploadError);
+      alert('Photo upload failed: ' + uploadError.message);
+      return;
+    }
+
+    const { data: publicData } = supabaseClient
+      .storage
+      .from('menu-photos')
+      .getPublicUrl(filePath);
+
+    if (!publicData || !publicData.publicUrl) {
+      alert('Photo uploaded, but its public URL could not be created.');
+      return;
+    }
+
+    photo_url = publicData.publicUrl;
+  }
+
+  const { error: insertError } = await supabaseClient
+    .from('menu_items')
+    .insert({
+      name,
+      description,
+      price,
+      photo_url,
+      available: true
+    });
+
+  if (insertError) {
+    console.error('Menu item insert error:', insertError);
+
+    // If the database insert fails after a successful upload,
+    // remove the uploaded image so storage is not left with an orphan file.
+    if (photo_url) {
+      try {
+        const fileName = photo_url.split('/').pop();
+        await supabaseClient.storage.from('menu-photos').remove([fileName]);
+      } catch (cleanupError) {
+        console.warn('Could not remove unused uploaded photo:', cleanupError);
+      }
+    }
+
+    alert('Could not add menu item: ' + insertError.message);
+    return;
+  }
+
   document.getElementById('newItemName').value = '';
   document.getElementById('newItemDesc').value = '';
   document.getElementById('newItemPrice').value = '';
-  fileInput.value = '';
-  loadMenuManage();
-}
+  if (fileInput) fileInput.value = '';
 
+  alert('Menu item added successfully.');
+  await loadMenuManage();
+}
 async function toggleItemAvailable(id, available) {
   await supabaseClient.from('menu_items').update({ available }).eq('id', id);
 }
