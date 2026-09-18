@@ -1,8 +1,31 @@
 // ============================================================
-// ADMIN DASHBOARD LOGIC
+// ADMIN DASHBOARD LOGIC - FIXED WITH COMPRESSION
 // ============================================================
 
 let CURRENT_CHAT_CUSTOMER = null;
+
+// ---- IMAGE COMPRESS FUNCTION ----
+async function compressImage(file, maxWidth = 800, quality = 0.7) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.src = URL.createObjectURL(file);
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let width = img.width;
+      let height = img.height;
+      if (width > maxWidth) {
+        height = (height * maxWidth) / width;
+        width = maxWidth;
+      }
+      canvas.width = width;
+      canvas.height = height;
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+      canvas.toBlob((blob) => {
+        resolve(new File([blob], file.name, { type: 'image/jpeg' }));
+      }, 'image/jpeg', quality);
+    };
+  });
+}
 
 // ---- AUTH ----
 async function doLogin() {
@@ -55,7 +78,7 @@ async function toggleOrdering() {
 async function loadOrders() {
   const { data, error } = await supabaseClient.from('orders').select('*').order('id', { ascending: false });
   const list = document.getElementById('ordersList');
-  if (error || !data || data.length === 0) {
+  if (error ||!data || data.length === 0) {
     list.innerHTML = '<p class="muted">No orders yet.</p>';
     return;
   }
@@ -70,19 +93,16 @@ async function loadOrders() {
       <p class="muted">${o.customer_location}</p>
       ${o.items.map(i => `<div class="panel-row"><span>${i.name} × ${i.qty}</span><span>Rs. ${i.price * i.qty}</span></div>`).join('')}
       <div class="panel-row total"><span>Total</span><span>Rs. ${o.total}</span></div>
-      <p class="muted">Payment: ${o.payment_method}${o.payment_screenshot_url ? ` — <a href="${o.payment_screenshot_url}" target="_blank">view screenshot</a> — <a href="#" onclick="deleteScreenshot(${o.id}, '${o.payment_screenshot_url}'); return false;" style="color:#B4531E">delete screenshot</a>` : ''}</p>
-
+      <p class="muted">Payment: ${o.payment_method}${o.payment_screenshot_url? ` — <a href="${o.payment_screenshot_url}" target="_blank">view screenshot</a> — <a href="#" onclick="deleteScreenshot(${o.id}, '${o.payment_screenshot_url}'); return false;" style="color:#B4531E">delete screenshot</a>` : ''}</p>
       <label>Status</label>
       <select onchange="updateOrderStatus(${o.id}, this.value)">
         ${['pending','confirmed','preparing','out_for_delivery','delivered','cancelled'].map(s =>
-          `<option value="${s}" ${s === o.status ? 'selected' : ''}>${s}</option>`).join('')}
+          `<option value="${s}" ${s === o.status? 'selected' : ''}>${s}</option>`).join('')}
       </select>
-
       <label>Rider name</label>
       <input type="text" value="${o.rider_name || ''}" onblur="updateRider(${o.id}, this.value, null)">
       <label>Rider phone</label>
       <input type="text" value="${o.rider_phone || ''}" onblur="updateRider(${o.id}, null, this.value)">
-
       <button class="btn btn-outline" style="margin-top:10px" onclick="printReceipt(${o.id})">Print receipt</button>
     </div>
   `).join('');
@@ -94,15 +114,15 @@ async function updateOrderStatus(id, status) {
 
 async function updateRider(id, name, phone) {
   const update = {};
-  if (name !== null) update.rider_name = name;
-  if (phone !== null) update.rider_phone = phone;
+  if (name!== null) update.rider_name = name;
+  if (phone!== null) update.rider_phone = phone;
   await supabaseClient.from('orders').update(update).eq('id', id);
 }
 
 function subscribeOrderUpdates() {
   supabaseClient.channel('admin-orders')
-    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, () => loadOrders())
-    .subscribe();
+   .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, () => loadOrders())
+   .subscribe();
 }
 
 async function printReceipt(id) {
@@ -121,7 +141,7 @@ async function printReceipt(id) {
     <hr>
     <div style="font-weight:bold">TOTAL: Rs.${data.total}</div>
     <div>Payment: ${data.payment_method}</div>
-    ${data.rider_name ? `<div>Rider: ${data.rider_name} ${data.rider_phone || ''}</div>` : ''}
+    ${data.rider_name? `<div>Rider: ${data.rider_name} ${data.rider_phone || ''}</div>` : ''}
   `;
   window.print();
 }
@@ -130,7 +150,6 @@ async function printReceipt(id) {
 async function downloadOrdersPDF() {
   const { data } = await supabaseClient.from('orders').select('*').order('id');
   if (!data || data.length === 0) { alert('No orders to export.'); return; }
-
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
   let y = 15;
@@ -138,37 +157,30 @@ async function downloadOrdersPDF() {
   doc.text('Order History', 14, y);
   y += 10;
   doc.setFontSize(10);
-
   data.forEach(o => {
     if (y > 270) { doc.addPage(); y = 15; }
-    doc.text(`#${o.id}  ${o.customer_name}  ${o.customer_phone}  Rs.${o.total}  [${o.status}]  ${new Date(o.created_at).toLocaleDateString()}`, 14, y);
+    doc.text(`#${o.id} ${o.customer_name} ${o.customer_phone} Rs.${o.total} [${o.status}] ${new Date(o.created_at).toLocaleDateString()}`, 14, y);
     y += 6;
     o.items.forEach(i => {
-      doc.text(`   - ${i.name} x${i.qty} = Rs.${i.price * i.qty}`, 14, y);
+      doc.text(` - ${i.name} x${i.qty} = Rs.${i.price * i.qty}`, 14, y);
       y += 5;
     });
     y += 3;
   });
-
   doc.save('orders.pdf');
 }
 
-// ---- DELETE ALL ORDERS (and their screenshot files) ----
 async function deleteAllOrders() {
   if (!confirm('Delete ALL orders AND their payment screenshots permanently? This cannot be undone. Consider downloading the PDF first.')) return;
-
-  // Delete every file in the payment-screenshots bucket to free up storage
   const { data: files } = await supabaseClient.storage.from('payment-screenshots').list();
   if (files && files.length > 0) {
     const paths = files.map(f => f.name);
     await supabaseClient.storage.from('payment-screenshots').remove(paths);
   }
-
   await supabaseClient.from('orders').delete().neq('id', -1);
   loadOrders();
 }
 
-// ---- DELETE ONE ORDER'S SCREENSHOT ONLY (keep the order) ----
 async function deleteScreenshot(orderId, screenshotUrl) {
   if (!confirm('Delete this payment screenshot? The order will stay, just without the image.')) return;
   const fileName = screenshotUrl.split('/').pop();
@@ -177,14 +189,13 @@ async function deleteScreenshot(orderId, screenshotUrl) {
   loadOrders();
 }
 
-// ---- RESET ORDER ID ----
 async function resetOrderIdCounter() {
   if (!confirm('Reset the order ID counter back to 0? New orders will start from #0 again.')) return;
   await supabaseClient.rpc('reset_order_id_counter');
   alert('Order ID counter reset.');
 }
 
-// ---- MENU MANAGEMENT ----
+// ---- MENU MANAGEMENT - FIXED ----
 async function loadMenuManage() {
   const { data } = await supabaseClient.from('menu_items').select('*').order('created_at');
   const list = document.getElementById('menuManageList');
@@ -194,12 +205,12 @@ async function loadMenuManage() {
       <div class="order-card-top">
         <strong>${item.name}</strong>
         <label class="switch">
-          <input type="checkbox" ${item.available ? 'checked' : ''} onchange="toggleItemAvailable('${item.id}', this.checked)">
+          <input type="checkbox" ${item.available? 'checked' : ''} onchange="toggleItemAvailable('${item.id}', this.checked)">
           <span class="slider"></span>
         </label>
       </div>
       <p class="muted">${item.description || ''} — Rs. ${item.price}</p>
-      ${item.photo_url ? `<img src="${item.photo_url}" style="width:60px;height:60px;object-fit:cover">` : ''}
+      ${item.photo_url? `<img src="${item.photo_url}" style="width:60px;height:60px;object-fit:cover">` : ''}
       <div style="margin-top:8px">
         <button class="btn-outline btn" onclick="deleteMenuItem('${item.id}')">Delete</button>
       </div>
@@ -212,73 +223,58 @@ async function addMenuItem() {
   const description = document.getElementById('newItemDesc').value.trim();
   const price = parseFloat(document.getElementById('newItemPrice').value);
   const fileInput = document.getElementById('newItemPhoto');
+  const btn = document.querySelector('[onclick="addMenuItem()"]');
+  if(btn) { btn.disabled = true; btn.textContent = 'Adding...'; }
 
-  if (!name || !Number.isFinite(price) || price <= 0) {
+  if (!name ||!Number.isFinite(price) || price <= 0) {
     alert('Please enter a valid name and price.');
+    if(btn) { btn.disabled = false; btn.textContent = 'Add Item'; }
     return;
   }
 
   let photo_url = null;
 
-  // Upload photo first, only when a photo was selected.
   if (fileInput && fileInput.files && fileInput.files.length > 0) {
     const file = fileInput.files[0];
-
     if (!file.type.startsWith('image/')) {
       alert('Please select an image file.');
+      if(btn) { btn.disabled = false; btn.textContent = 'Add Item'; }
       return;
     }
 
-    // Keep the filename safe and unique.
-    const extension = (file.name.split('.').pop() || 'jpg')
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, '');
+    try {
+      if(btn) btn.textContent = 'Compressing...';
+      const compressedFile = await compressImage(file, 800, 0.7); // COMPRESS HERE
 
-    const filePath = `menu_${Date.now()}_${crypto.randomUUID()}.${extension}`;
+      const extension = 'jpg';
+      const filePath = `menu_${Date.now()}_${crypto.randomUUID()}.${extension}`;
 
-    const { error: uploadError } = await supabaseClient
-      .storage
-      .from('menu-photos')
-      .upload(filePath, file, {
+      if(btn) btn.textContent = 'Uploading...';
+      const { error: uploadError } = await supabaseClient.storage.from('menu-photos').upload(filePath, compressedFile, {
         cacheControl: '3600',
         upsert: false,
-        contentType: file.type
+        contentType: 'image/jpeg'
       });
 
-    if (uploadError) {
-      console.error('Menu photo upload error:', uploadError);
-      alert('Photo upload failed: ' + uploadError.message);
+      if (uploadError) throw uploadError;
+
+      const { data: publicData } = supabaseClient.storage.from('menu-photos').getPublicUrl(filePath);
+      photo_url = publicData.publicUrl;
+
+    } catch (e) {
+      console.error('Menu photo upload error:', e);
+      alert('Photo upload failed: ' + e.message);
+      if(btn) { btn.disabled = false; btn.textContent = 'Add Item'; }
       return;
     }
-
-    const { data: publicData } = supabaseClient
-      .storage
-      .from('menu-photos')
-      .getPublicUrl(filePath);
-
-    if (!publicData || !publicData.publicUrl) {
-      alert('Photo uploaded, but its public URL could not be created.');
-      return;
-    }
-
-    photo_url = publicData.publicUrl;
   }
 
-  const { error: insertError } = await supabaseClient
-    .from('menu_items')
-    .insert({
-      name,
-      description,
-      price,
-      photo_url,
-      available: true
-    });
+  const { error: insertError } = await supabaseClient.from('menu_items').insert({
+    name, description, price, photo_url, available: true
+  });
 
   if (insertError) {
     console.error('Menu item insert error:', insertError);
-
-    // If the database insert fails after a successful upload,
-    // remove the uploaded image so storage is not left with an orphan file.
     if (photo_url) {
       try {
         const fileName = photo_url.split('/').pop();
@@ -287,8 +283,8 @@ async function addMenuItem() {
         console.warn('Could not remove unused uploaded photo:', cleanupError);
       }
     }
-
     alert('Could not add menu item: ' + insertError.message);
+    if(btn) { btn.disabled = false; btn.textContent = 'Add Item'; }
     return;
   }
 
@@ -296,14 +292,14 @@ async function addMenuItem() {
   document.getElementById('newItemDesc').value = '';
   document.getElementById('newItemPrice').value = '';
   if (fileInput) fileInput.value = '';
-
+  if(btn) { btn.disabled = false; btn.textContent = 'Add Item'; }
   alert('Menu item added successfully.');
   await loadMenuManage();
 }
+
 async function toggleItemAvailable(id, available) {
   await supabaseClient.from('menu_items').update({ available }).eq('id', id);
 }
-
 async function deleteMenuItem(id) {
   if (!confirm('Delete this menu item?')) return;
   await supabaseClient.from('menu_items').delete().eq('id', id);
@@ -323,7 +319,6 @@ async function loadSettingsForm() {
   document.getElementById('setEpNumber').value = data.easypaisa_account_number || '';
   document.getElementById('setDeliveryCharge').value = data.delivery_charge || 0;
 }
-
 async function saveSettings() {
   const update = {
     kitchen_name: document.getElementById('setKitchenName').value.trim(),
@@ -342,19 +337,14 @@ async function saveSettings() {
 
 // ---- ADMIN CHAT ----
 async function loadChatCustomerList() {
-  const { data } = await supabaseClient
-    .from('chat_messages')
-    .select('customer_id, message, created_at, customers(name, phone)')
-    .order('created_at', { ascending: false });
+  const { data } = await supabaseClient.from('chat_messages').select('customer_id, message, created_at, customers(name, phone)').order('created_at', { ascending: false });
   const listEl = document.getElementById('chatCustomerList');
   if (!data || data.length === 0) { listEl.innerHTML = '<p class="muted">No customer chats yet.</p>'; return; }
-
   const seen = new Set();
   const uniqueCustomers = [];
   data.forEach(m => {
     if (!seen.has(m.customer_id)) { seen.add(m.customer_id); uniqueCustomers.push(m); }
   });
-
   listEl.innerHTML = '<h3>Conversations</h3>' + uniqueCustomers.map(m => `
     <div style="padding:8px 0; border-bottom:1px solid var(--line); cursor:pointer" onclick="openChat('${m.customer_id}', '${(m.customers?.name || 'Customer').replace(/'/g, "\\'")}')">
       <strong>${m.customers?.name || 'Customer'}</strong> <span class="muted">${m.customers?.phone || ''}</span>
@@ -362,42 +352,28 @@ async function loadChatCustomerList() {
     </div>
   `).join('');
 }
-
 async function openChat(customerId, customerName) {
   CURRENT_CHAT_CUSTOMER = customerId;
   document.getElementById('adminChatWindow').classList.remove('hidden');
   document.getElementById('chatWithName').textContent = 'Chat with ' + customerName;
   loadAdminChatMessages();
 }
-
 async function loadAdminChatMessages() {
   if (!CURRENT_CHAT_CUSTOMER) return;
-  const { data } = await supabaseClient
-    .from('chat_messages').select('*').eq('customer_id', CURRENT_CHAT_CUSTOMER).order('created_at');
+  const { data } = await supabaseClient.from('chat_messages').select('*').eq('customer_id', CURRENT_CHAT_CUSTOMER).order('created_at');
   const box = document.getElementById('adminChatBox');
   box.innerHTML = (data || []).map(m => `<div class="chat-msg ${m.sender}">${m.message}</div>`).join('');
   box.scrollTop = box.scrollHeight;
 }
-
 async function sendAdminReply() {
   const input = document.getElementById('adminChatInput');
   const message = input.value.trim();
-  if (!message || !CURRENT_CHAT_CUSTOMER) return;
+  if (!message ||!CURRENT_CHAT_CUSTOMER) return;
   input.value = '';
   await supabaseClient.from('chat_messages').insert({
     customer_id: CURRENT_CHAT_CUSTOMER, sender: 'admin', message
   });
   loadAdminChatMessages();
 }
-
 function subscribeAdminChat() {
   supabaseClient.channel('admin-chat')
-    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, () => {
-      loadChatCustomerList();
-      if (CURRENT_CHAT_CUSTOMER) loadAdminChatMessages();
-    }).subscribe();
-}
-
-// ---- INIT ----
-checkSession();
-subscribeAdminChat();
