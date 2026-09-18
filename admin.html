@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — Home Kitchen</title>
+<link rel="stylesheet" href="css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginScreen" class="wrap" style="max-width:400px; margin-top:60px;">
+  <h2 class="center">Admin Login</h2>
+  <div class="panel">
+    <label>Email</label>
+    <input id="loginEmail" type="email">
+    <label>Password</label>
+    <input id="loginPassword" type="password">
+    <button class="btn btn-block" style="margin-top:16px" onclick="doLogin()">Log In</button>
+    <p id="loginError" class="muted hidden" style="color:#B4531E; margin-top:10px"></p>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard" class="admin-wrap hidden">
+  <div class="admin-topbar">
+    <h2 style="margin:0">Admin Dashboard</h2>
+    <div class="toggle-row">
+      <span class="muted">Ordering</span>
+      <label class="switch">
+        <input type="checkbox" id="orderingToggle" onchange="toggleOrdering()">
+        <span class="slider"></span>
+      </label>
+      <button class="btn-outline btn" onclick="doLogout()">Log Out</button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="orders" onclick="showTab('orders')">Orders</button>
+    <button class="tab-btn" data-tab="menu" onclick="showTab('menu')">Menu</button>
+    <button class="tab-btn" data-tab="settings" onclick="showTab('settings')">Kitchen Info</button>
+    <button class="tab-btn" data-tab="chat" onclick="showTab('chat')">Customer Chats</button>
+  </div>
+
+  <!-- ORDERS TAB -->
+  <div id="tab-orders" class="tab-panel active">
+    <div class="mb" style="display:flex; gap:10px; flex-wrap:wrap;">
+      <button class="btn btn-gold" onclick="downloadOrdersPDF()">Download all orders (PDF)</button>
+      <button class="btn btn-danger" onclick="deleteAllOrders()">Delete all orders</button>
+      <button class="btn btn-outline" onclick="resetOrderIdCounter()">Reset order ID to 0</button>
+    </div>
+    <div id="ordersList"></div>
+  </div>
+
+  <!-- MENU TAB -->
+  <div id="tab-menu" class="tab-panel">
+    <div class="panel mb">
+      <h3>Add menu item</h3>
+      <label>Name</label>
+      <input id="newItemName" type="text">
+      <label>Description</label>
+      <input id="newItemDesc" type="text">
+      <label>Price (Rs.)</label>
+      <input id="newItemPrice" type="number">
+      <label>Photo</label>
+      <input id="newItemPhoto" type="file" accept="image/*">
+      <button class="btn" style="margin-top:14px" onclick="addMenuItem()">Add Item</button>
+    </div>
+    <div id="menuManageList"></div>
+  </div>
+
+  <!-- SETTINGS TAB -->
+  <div id="tab-settings" class="tab-panel">
+    <div class="panel">
+      <h3>Kitchen info (shown to customers)</h3>
+      <label>Kitchen name</label>
+      <input id="setKitchenName" type="text">
+      <label>Phone number</label>
+      <input id="setKitchenPhone" type="text">
+      <label>Location</label>
+      <input id="setKitchenLocation" type="text">
+      <label>Description</label>
+      <textarea id="setKitchenDesc" rows="2"></textarea>
+
+      <h3 style="margin-top:24px">Payment</h3>
+      <label>EasyPaisa account name</label>
+      <input id="setEpName" type="text">
+      <label>EasyPaisa account number</label>
+      <input id="setEpNumber" type="text">
+      <label>Delivery charge (Rs.)</label>
+      <input id="setDeliveryCharge" type="number">
+
+      <button class="btn" style="margin-top:16px" onclick="saveSettings()">Save Settings</button>
+      <p id="settingsSaved" class="muted hidden">✓ Saved</p>
+    </div>
+  </div>
+
+  <!-- CHAT TAB -->
+  <div id="tab-chat" class="tab-panel">
+    <div id="chatCustomerList" class="panel mb"></div>
+    <div id="adminChatWindow" class="panel hidden">
+      <h3 id="chatWithName"></h3>
+      <div id="adminChatBox" class="chat-box"></div>
+      <div class="chat-input-row">
+        <input id="adminChatInput" type="text" placeholder="Reply...">
+        <button class="btn" onclick="sendAdminReply()">Send</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Hidden printable receipt template -->
+<div id="receipt" style="display:none"></div>
+
+<script src="js/supabase-config.js"></script>
+<script src="js/admin.js"></script>
+</body>
+</html>

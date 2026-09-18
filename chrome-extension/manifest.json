@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "Home Kitchen — New Order Alerts",
+  "version": "1.0",
+  "description": "Get an instant desktop notification whenever a new order comes in.",
+  "permissions": ["notifications", "storage"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "icons": {
+    "128": "icon.png"
+  }
+}

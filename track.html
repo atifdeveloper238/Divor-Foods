@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Track My Order</title>
+<link rel="stylesheet" href="css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<header class="site-header">
+  <h1>Track My Order</h1>
+</header>
+
+<div class="wrap">
+  <a href="index.html" class="muted">← Back to menu</a>
+
+  <div class="panel" style="margin-top:20px">
+    <label>Enter your Order ID</label>
+    <input id="orderIdInput" type="number" placeholder="e.g. 14">
+    <button class="btn btn-block" style="margin-top:14px" onclick="trackOrder()">Track Order</button>
+  </div>
+
+  <div id="result" class="panel hidden" style="margin-top:20px"></div>
+  <p id="notFound" class="muted hidden" style="margin-top:20px">No order found with that ID.</p>
+</div>
+
+<script src="js/supabase-config.js"></script>
+<script src="js/track.js"></script>
+</body>
+</html>
