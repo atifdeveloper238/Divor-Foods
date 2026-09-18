@@ -376,11 +376,20 @@ async function sendAdminReply() {
   loadAdminChatMessages();
 }
 function subscribeAdminChat() {
-  supabaseClient.channel('admin-chat')
-   .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, () => {
+  supabaseClient.channel('admin-chat-all')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, payload => {
       loadChatCustomerList();
-      if (CURRENT_CHAT_CUSTOMER) loadAdminChatMessages();
+      if (CURRENT_CHAT_CUSTOMER && payload.new.customer_id === CURRENT_CHAT_CUSTOMER) {
+        const box = document.getElementById('adminChatBox');
+        const m = payload.new;
+        const div = document.createElement('div');
+        div.className = `chat-msg ${m.sender}`;
+        div.textContent = m.message;
+        box.appendChild(div);
+        box.scrollTop = box.scrollHeight;
+      }
     }).subscribe();
+}
 }
 
 // ---- INIT ----
