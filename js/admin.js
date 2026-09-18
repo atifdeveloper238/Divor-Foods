@@ -368,12 +368,18 @@ async function loadAdminChatMessages() {
 async function sendAdminReply() {
   const input = document.getElementById('adminChatInput');
   const message = input.value.trim();
-  if (!message ||!CURRENT_CHAT_CUSTOMER) return;
+  if (!message || !CURRENT_CHAT_CUSTOMER) return;
   input.value = '';
+  
+  // Bas insert karo, list me khud add mat karo
+  // Realtime khud add kar dega
   await supabaseClient.from('chat_messages').insert({
-    customer_id: CURRENT_CHAT_CUSTOMER, sender: 'admin', message
+    customer_id: CURRENT_CHAT_CUSTOMER, 
+    sender: 'admin', 
+    message
   });
-  loadAdminChatMessages();
+  
+  // loadAdminChatMessages(); // <-- Ye line hata di hai, yahi double kara rahi thi
 }
 function subscribeAdminChat() {
   supabaseClient.channel('admin-chat-all')
@@ -382,8 +388,13 @@ function subscribeAdminChat() {
       if (CURRENT_CHAT_CUSTOMER && payload.new.customer_id === CURRENT_CHAT_CUSTOMER) {
         const box = document.getElementById('adminChatBox');
         const m = payload.new;
+        
+        // Agar ye ID pehle se mojood hai to dubara add mat karo
+        if (box.querySelector(`[data-msg-id="${m.id}"]`)) return;
+
         const div = document.createElement('div');
         div.className = `chat-msg ${m.sender}`;
+        div.dataset.msgId = m.id; // ID lagana zaroori hai
         div.textContent = m.message;
         box.appendChild(div);
         box.scrollTop = box.scrollHeight;
