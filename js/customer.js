@@ -269,4 +269,94 @@ async function placeOrder() {
     return { name: item.name, price: item.price, qty };
   });
   const subtotal = items.reduce((s, i) => s + i.price * i.qty, 0);
-  const deliveryCharge = Number(SETTINGS?.
+  const deliveryCharge = Number(SETTINGS?.delivery_charge || 0);
+  const total = subtotal + deliveryCharge;
+
+  const { data: orderId, error: idErr } = await supabaseClient.rpc('get_next_order_id');
+  if (idErr) {
+    errEl.textContent = 'Could not create order ID: ' + idErr.message;
+    errEl.classList.remove('hidden');
+    if(btn) { btn.disabled = false; btn.textContent = 'Place Order'; }
+    return;
+  }
+
+  const { data: orderData, error: orderErr } = await supabaseClient.from('orders').insert({
+    id: orderId,
+    customer_id: CUSTOMER.id,
+    customer_name: CUSTOMER.name,
+    customer_phone: CUSTOMER.phone,
+    customer_location: CUSTOMER.location,
+    items,
+    delivery_charge: deliveryCharge,
+    total,
+    payment_method: method,
+    payment_screenshot_url: screenshotUrl,
+    status: 'pending'
+  }).select().single();
+
+  if (orderErr) {
+    errEl.textContent = 'Could not place order: ' + orderErr.message;
+    errEl.classList.remove('hidden');
+    if(btn) { btn.disabled = false; btn.textContent = 'Place Order'; }
+    return;
+  }
+
+  // reset cart & show confirmation
+  Object.keys(cart).forEach(k => cart[k] = 0);
+  document.getElementById('cartPanel').classList.add('hidden');
+  document.getElementById('screenshotInput').value = ''; // IMPORTANT: input clear yahan karo
+  loadMenu();
+
+  document.getElementById('confirmOrderId').textContent = '#' + orderData.id;
+  document.getElementById('confirmPanel').classList.remove('hidden');
+  loadMyOrders();
+  if (orderData.rider_name) {
+    document.getElementById('riderName').textContent = orderData.rider_name;
+    document.getElementById('riderPhone').textContent = orderData.rider_phone || '';
+    document.getElementById('riderInfo').classList.remove('hidden');
+  }
+  if(btn) { btn.disabled = false; btn.textContent = 'Place Order'; }
+}
+
+// ---- chat ----
+async function loadChat() {
+  if (!CUSTOMER) return;
+  const { data } = await supabaseClient
+   .from('chat_messages').select('*').eq('customer_id', CUSTOMER.id).order('created_at');
+  renderChat(data || []);
+}
+function renderChat(messages) {
+  const box = document.getElementById('chatBox');
+  box.innerHTML = messages.map(m =>
+    `<div class="chat-msg ${m.sender}">${m.message}</div>`
+  ).join('');
+  box.scrollTop = box.scrollHeight;
+}
+async function sendChatMessage() {
+  if (!CUSTOMER) {
+    alert('Please log in or create an account first to chat with us.');
+    return;
+  }
+  const input = document.getElementById('chatInput');
+  const message = input.value.trim();
+  if (!message) return;
+  input.value = '';
+  await supabaseClient.from('chat_messages').insert({
+    customer_id: CUSTOMER.id, sender: 'customer', message
+  });
+  loadChat();
+}
+function subscribeChat() {
+  supabaseClient.channel('customer-chat')
+   .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, payload => {
+      if (CUSTOMER && payload.new.customer_id === CUSTOMER.id) loadChat();
+    }).subscribe();
+}
+
+// ---- init ----
+(async function init() {
+  await loadSettings();
+  await loadMenu();
+  await restoreSession();
+  subscribeChat();
+})();
