@@ -218,7 +218,7 @@ input:checked + .slider:before { transform: translateX(24px); }
  
 /* ---- Print (mini printer receipt) ---- */
 /* Change this one value if your roll is 80mm instead of 58mm */
-:root { --receipt-width: 58mm; }
+:root { --receipt-width: 72mm; }
  
 @media print {
   @page {
