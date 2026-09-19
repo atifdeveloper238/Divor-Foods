@@ -125,23 +125,55 @@ function subscribeOrderUpdates() {
    .subscribe();
 }
 
+let printerChar =null;
 async function printReceipt(id) {
   const { data } = await supabaseClient.from('orders').select('*').eq('id', id).single();
   if (!data) return;
+
+  // --- BLUETOOTH THERMAL PRINT LOGIC ---
+  try {
+    if (!printerChar) {
+      const device = await navigator.bluetooth.requestDevice({
+        acceptAllDevices: true,
+        optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb', 'battery_service']
+      });
+      const server = await device.gatt.connect();
+      const service = await server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
+      printerChar = await service.getCharacteristic('00002af1-0000-1000-8000-00805f9b34fb');
+    }
+
+    let itemsText = "";
+    try {
+      itemsText = data.items.map(i => `${i.name} x${i.qty} = Rs.${i.price * i.qty}`).join('\n');
+    } catch(e) { itemsText = JSON.stringify(data.items); }
+
+    let bill = `      DIVOR FOODS\n   HOME KITCHEN Sargodha\n------------------------------\nOrder #${data.id}\n${new Date(data.created_at).toLocaleString()}\n------------------------------\n${data.customer_name} - ${data.customer_phone}\n${data.customer_location}\n------------------------------\n${itemsText}\nDelivery: Rs.${data.delivery_charge}\n------------------------------\nTOTAL: Rs.${data.total}\nPayment: ${data.payment_method}\n------------------------------\n        Shukria!\n\n\n`;
+
+    let encoded = new TextEncoder().encode(bill);
+    for (let i = 0; i < encoded.length; i += 100) {
+      await printerChar.writeValue(encoded.slice(i, i + 100));
+    }
+    return; // thermal se print ho gaya, ab window.print nahi chahiye
+
+  } catch (err) {
+    console.log("Bluetooth fail, normal print:", err);
+  }
+
+  // --- FALLBACK: Agar bluetooth nahi to purana wala hi chalega ---
   document.getElementById('receipt').innerHTML = `
     <div style="text-align:center; font-weight:bold;">HOME KITCHEN</div>
     <div>Order #${data.id}</div>
     <div>${new Date(data.created_at).toLocaleString()}</div>
     <hr>
-    <div>${data.customer_name} — ${data.customer_phone}</div>
+    <div>${data.customer_name} - ${data.customer_phone}</div>
     <div>${data.customer_location}</div>
     <hr>
-    ${data.items.map(i => `<div>${i.name} x${i.qty} — Rs.${i.price * i.qty}</div>`).join('')}
-    <div>Delivery — Rs.${data.delivery_charge}</div>
+    ${data.items.map(i => `<div>${i.name} x${i.qty} - Rs.${i.price * i.qty}</div>`).join('')}
+    <div>Delivery - Rs.${data.delivery_charge}</div>
     <hr>
     <div style="font-weight:bold">TOTAL: Rs.${data.total}</div>
     <div>Payment: ${data.payment_method}</div>
-    ${data.rider_name? `<div>Rider: ${data.rider_name} ${data.rider_phone || ''}</div>` : ''}
+    ${data.rider_name ? `<div>Rider: ${data.rider_name} ${data.rider_phone || ''}</div>` : ''}
   `;
   window.print();
 }
